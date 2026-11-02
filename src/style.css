@@ -595,12 +595,13 @@ button {
 
 /* Hover the panel: it glides to the centre, grows, and opens up for scrolling */
 .card.on.focus {
-  z-index: 8;
-  width: 500px;
-  max-height: calc(100vh - 48px);
+  z-index: 9;
+  width: 460px;
+  max-height: calc(100vh - 130px);
   overflow-y: auto;
-  /* right edge sits 36px from the viewport edge; move it so the panel's centre meets the screen's centre */
-  transform: translate(calc(-50vw + 36px + 50%), -50%);
+  /* right edge sits 36px from the viewport edge; move it so the panel's centre meets the screen's centre.
+     --shift and --s move it sideways and shrink it while the row slides. */
+  transform: translate(calc(-50vw + 36px + 50% + var(--shift, 0px)), calc(-50% - 30px)) scale(var(--s, 1));
   box-shadow: 0 40px 120px -30px rgba(94, 242, 214, 0.5), 0 0 0 1px rgba(94, 242, 214, 0.35);
 }
 
@@ -719,22 +720,96 @@ button {
   }
 }
 
-.slide-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  max-height: 0;
-  padding: 0 14px;
-  overflow: hidden;
-  opacity: 0;
-  transition: max-height 0.5s var(--ease), opacity 0.4s, padding 0.4s;
+/* ---------- The row of city panels around the centred one ---------- */
+.card.on.focus.sliding {
+  transition: transform 0.55s var(--ease), opacity 0.55s, box-shadow 0.5s;
 }
 
-.card.on.focus .slide-nav {
-  max-height: 60px;
-  padding: 12px 14px 0;
+.card.on.focus.side {
+  opacity: 0.55;
+}
+
+.card.snap,
+.side-cards.snap .side-card {
+  transition: none !important;
+}
+
+.carousel {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+.carousel.on {
   opacity: 1;
+}
+
+.carousel.on .side-card,
+.carousel.on .slide-nav {
+  pointer-events: auto;
+}
+
+.side-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 460px;
+  overflow: hidden;
+  border-radius: 26px;
+  cursor: pointer;
+  transform: translate(calc(-50% + var(--x, 0px)), calc(-50% - 30px)) scale(var(--s, 0.82));
+  opacity: var(--o, 0.55);
+  filter: saturate(0.8);
+  transition: transform 0.55s var(--ease), opacity 0.55s, filter 0.55s;
+}
+
+.side-card:hover {
+  filter: none;
+  opacity: calc(var(--o, 0.55) + 0.2);
+}
+
+.side-card img {
+  display: block;
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+}
+
+.side-card .card-body {
+  padding: 18px 20px 22px;
+}
+
+.side-card h2 {
+  margin: 4px 0;
+  font: 400 40px/1 var(--serif);
+}
+
+.side-card p {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.slide-nav {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--edge);
+  backdrop-filter: blur(16px);
+  transform: translate(-50%, 20px);
+  transition: transform 0.6s var(--ease);
+}
+
+.carousel.on .slide-nav {
+  transform: translate(-50%, 0);
 }
 
 .dots {

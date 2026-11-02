@@ -181,7 +181,8 @@ async function select(d: Dest): Promise<void> {
 
 function closeCard(): void {
   selected = null;
-  $('card').classList.remove('on', 'focus');
+  $('card').classList.remove('on', 'focus', 'side', 'sliding');
+  $('carousel').classList.remove('on');
   $('card-backdrop').classList.remove('on');
   $('hero').classList.remove('away');
   $('clocks').style.opacity = '1';
@@ -276,30 +277,119 @@ const PACE_NOTES: Record<Pace, string> = {
   packed: 'About 5 places a day, for seeing as much as you can.',
 };
 
-// ---------- Panel slider: swipe from city to city ----------
+// ---------- Row of city panels: the centred one plus the other cities beside it ----------
 
-let sliding = false;
+const STEP = 380; // px between neighbouring panels
+const nowTemp = new Map<string, string>();
+let rowBusy = false;
 
-/** Slide to the next (1) or previous (-1) featured city; it loops, and the globe flies along. */
-function slideCity(step: 1 | -1): void {
-  if (sliding) return;
-  sliding = true;
-  const at = FEATURED.findIndex((f) => f.id === selected?.id);
-  const next = FEATURED[(((at < 0 ? (step > 0 ? -1 : 0) : at) + step) % FEATURED.length + FEATURED.length) % FEATURED.length];
-  const body = $('c-body');
-  body.classList.remove('enter-left', 'enter-right');
-  body.classList.add(step > 0 ? 'leave-left' : 'leave-right');
+/** The cities in the row: the featured five, plus a searched city at the front. */
+function rowCities(): Dest[] {
+  const s = selected;
+  return s && !FEATURED.some((f) => f.id === s.id) ? [s, ...FEATURED] : FEATURED;
+}
+
+function sideCardHtml(d: Dest): string {
+  const km = distanceKm(HOME.lat, HOME.lng, d.lat, d.lng);
+  const flight = km < 300 ? `${Math.max(1, Math.round(km / 80))} h drive` : `${Math.round(km / 830 + 0.6)} h`;
+  const list = facts(d, flight, km, nowTemp.get(d.id) ?? '…');
+  return (
+    `<img src="${esc(d.photo ? commons(d.photo, 960) : d.image ?? '')}" alt="">` +
+    `<div class="card-body"><small class="kicker">${esc(d.country)} · from ${HOME.name}</small>` +
+    `<h2>${esc(d.name)}</h2><p>${esc(d.line ?? '')}</p>` +
+    `<div class="facts">${list.map(([k, v]) => `<div><span>${k}</span><b>${esc(v)}</b></div>`).join('')}</div></div>`
+  );
+}
+
+/** Lay the other cities out on both sides of the centred panel, wrapping around. */
+function layoutRow(): void {
+  const cities = rowCities();
+  const at = Math.max(0, cities.findIndex((c) => c.id === selected?.id));
+  const n = cities.length;
+  const wrap = $('side-cards');
+  const keep = new Map([...wrap.querySelectorAll<HTMLElement>('.side-card')].map((el) => [el.dataset.id ?? '', el]));
+  const used = new Set<string>([cities[at].id]);
+  for (let k = 1; k < n; k++) {
+    // nearest first: +1, -1, +2, -2 …
+    const off = k % 2 ? Math.ceil(k / 2) : -k / 2;
+    const d = cities[(((at + off) % n) + n) % n];
+    if (used.has(d.id)) continue;
+    used.add(d.id);
+    let el = keep.get(d.id);
+    if (!el) {
+      el = document.createElement('article');
+      el.className = 'side-card glass';
+      el.dataset.id = d.id;
+      el.innerHTML = sideCardHtml(d);
+      wrap.append(el);
+    }
+    placeSide(el, off);
+  }
+  keep.forEach((el, id) => !used.has(id) && el.remove());
+  if (keep.has(cities[at].id)) keep.get(cities[at].id)?.remove();
+  markSlide();
+}
+
+function placeSide(el: HTMLElement, off: number): void {
+  el.dataset.off = String(off);
+  el.style.setProperty('--x', `${off * STEP}px`);
+  el.style.setProperty('--s', off === 0 ? '1' : Math.abs(off) === 1 ? '0.82' : '0.7');
+  el.style.setProperty('--o', off === 0 ? '1' : Math.abs(off) === 1 ? '0.55' : '0.22');
+  el.style.zIndex = String(10 - Math.abs(off));
+}
+
+function openCarousel(): void {
+  const wrap = $('side-cards');
+  wrap.classList.add('snap');
+  wrap.innerHTML = '';
+  layoutRow();
+  void wrap.offsetWidth;
+  wrap.classList.remove('snap');
+  $('carousel').classList.add('on');
+  // live temperatures for the side panels
+  FEATURED.forEach((d) => {
+    if (nowTemp.has(d.id)) return;
+    weather(d.lat, d.lng)
+      .then((w) => {
+        nowTemp.set(d.id, `${Math.round(w.nowTemp)}° ${weatherIcon(w.nowCode).icon}`);
+        const el = wrap.querySelector<HTMLElement>(`.side-card[data-id="${d.id}"]`);
+        if (el) el.innerHTML = sideCardHtml(d);
+      })
+      .catch(() => undefined);
+  });
+}
+
+/** Slide the whole row one panel left (1) or right (-1); the globe flies to the new centre city. */
+function slideRow(step: number): void {
+  if (rowBusy || !$('card').classList.contains('focus')) return;
+  const cities = rowCities();
+  const at = Math.max(0, cities.findIndex((c) => c.id === selected?.id));
+  const next = cities[(((at + step) % cities.length) + cities.length) % cities.length];
+  rowBusy = true;
+  const card = $('card');
+  // the centred panel moves aside and shrinks; every side panel moves one place over
+  card.classList.add('sliding', 'side');
+  card.style.setProperty('--shift', `${-step * STEP}px`);
+  card.style.setProperty('--s', '0.82');
+  $('side-cards')
+    .querySelectorAll<HTMLElement>('.side-card')
+    .forEach((el) => placeSide(el, Number(el.dataset.off) - step));
   setTimeout(() => {
-    body.classList.remove('leave-left', 'leave-right');
-    $('card').scrollTop = 0;
+    // swap in the real panel for the new centre city without a visible jump
+    card.classList.add('snap');
+    card.classList.remove('sliding', 'side');
+    card.style.removeProperty('--shift');
+    card.style.removeProperty('--s');
+    card.scrollTop = 0;
     select(next);
-    body.classList.add(step > 0 ? 'enter-right' : 'enter-left');
-    const cover = $('c-img');
-    cover.classList.remove('swap');
-    void cover.offsetWidth;
-    cover.classList.add('swap');
-    sliding = false;
-  }, 280);
+    const wrap = $('side-cards');
+    wrap.classList.add('snap');
+    layoutRow();
+    void card.offsetWidth;
+    card.classList.remove('snap');
+    wrap.classList.remove('snap');
+    rowBusy = false;
+  }, 560);
 }
 
 function renderDots(): void {
@@ -314,61 +404,70 @@ function markSlide(): void {
     .forEach((b) => b.setAttribute('aria-current', String(FEATURED[Number(b.dataset.i)].id === selected?.id)));
 }
 
+/** Slide step by step until the given city is in the centre. */
+function slideToCity(id: string): void {
+  const cities = rowCities();
+  const n = cities.length;
+  const from = cities.findIndex((c) => c.id === selected?.id);
+  const to = cities.findIndex((c) => c.id === id);
+  if (to < 0 || to === from) return;
+  const fwd = (((to - from) % n) + n) % n;
+  const step = fwd <= n / 2 ? 1 : -1;
+  let left = step > 0 ? fwd : n - fwd;
+  const go = () => {
+    if (left-- <= 0) return;
+    slideRow(step);
+    setTimeout(go, 600);
+  };
+  go();
+}
+
 function wireSlider(): void {
   renderDots();
-  $('c-prev').onclick = () => slideCity(-1);
-  $('c-next').onclick = () => slideCity(1);
+  $('c-prev').onclick = () => slideRow(-1);
+  $('c-next').onclick = () => slideRow(1);
   $('c-dots').onclick = (e) => {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
-    if (!b) return;
-    const to = FEATURED[Number(b.dataset.i)];
-    const at = FEATURED.findIndex((f) => f.id === selected?.id);
-    if (to.id === selected?.id) return;
-    // jump straight there, gliding in from the side it sits on
-    const body = $('c-body');
-    body.classList.remove('enter-left', 'enter-right');
-    void body.offsetWidth;
-    select(to);
-    body.classList.add(Number(b.dataset.i) > at ? 'enter-right' : 'enter-left');
+    if (b) slideToCity(FEATURED[Number(b.dataset.i)].id);
   };
+  // Click a side panel to bring it to the centre.
+  $('side-cards').addEventListener('click', (e) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>('.side-card');
+    if (el?.dataset.id) slideToCity(el.dataset.id);
+  });
   const card = $('card');
-  // Trackpad: a two-finger sideways swipe moves one city.
+  const active = () => card.classList.contains('focus');
+  // Trackpad: a two-finger sideways swipe slides one panel.
   let wheelLock = 0;
-  card.addEventListener(
+  addEventListener(
     'wheel',
     (e) => {
-      if (!card.classList.contains('focus') || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      if (!active() || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       e.preventDefault();
       if (Date.now() < wheelLock || Math.abs(e.deltaX) < 12) return;
       wheelLock = Date.now() + 700;
-      slideCity(e.deltaX > 0 ? 1 : -1);
+      slideRow(e.deltaX > 0 ? 1 : -1);
     },
     { passive: false },
   );
-  // Mouse drag or finger swipe across the panel.
-  const body = $('c-body');
+  // Mouse drag or finger swipe anywhere on the row.
   let startX = 0;
   let startY = 0;
   let tracking = false;
-  body.addEventListener('pointerdown', (e) => {
-    if (!card.classList.contains('focus') || (e.target as HTMLElement).closest('button, input, label, a')) return;
+  addEventListener('pointerdown', (e) => {
+    const t = e.target as HTMLElement;
+    if (!active() || t.closest('button, input, label, a') || !t.closest('#card, #carousel')) return;
     tracking = true;
     startX = e.clientX;
     startY = e.clientY;
-    body.classList.add('dragging');
   });
-  const end = (e: PointerEvent) => {
+  addEventListener('pointerup', (e) => {
     if (!tracking) return;
     tracking = false;
-    body.classList.remove('dragging');
     const dx = e.clientX - startX;
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(e.clientY - startY)) slideCity(dx < 0 ? 1 : -1);
-  };
-  addEventListener('pointerup', end);
-  addEventListener('pointercancel', () => {
-    tracking = false;
-    body.classList.remove('dragging');
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(e.clientY - startY)) slideRow(dx < 0 ? 1 : -1);
   });
+  addEventListener('pointercancel', () => (tracking = false));
 }
 
 function wireCard(): void {
@@ -399,23 +498,29 @@ function wireCard(): void {
     stopTour();
     card.classList.add('focus');
     $('card-backdrop').classList.add('on');
+    openCarousel();
   };
   const unfocus = () => {
-    card.classList.remove('focus');
+    card.classList.remove('focus', 'side', 'sliding');
+    card.style.removeProperty('--shift');
+    card.style.removeProperty('--s');
     $('card-backdrop').classList.remove('on');
+    $('carousel').classList.remove('on');
     card.scrollTop = 0;
   };
   card.addEventListener('mouseenter', focus);
   card.addEventListener('focusin', stopTour);
   $('card-backdrop').onclick = unfocus;
+  // Clicking the empty space around the row also slides the panel back.
+  $('carousel').addEventListener('click', (e) => e.target === e.currentTarget && unfocus());
   addEventListener('keydown', (e) => {
     if (!card.classList.contains('focus')) return;
     if (e.key === 'Escape') {
       e.preventDefault(); // slide back only; a second Esc closes the panel
       unfocus();
     }
-    if (e.key === 'ArrowRight') slideCity(1);
-    if (e.key === 'ArrowLeft') slideCity(-1);
+    if (e.key === 'ArrowRight') slideRow(1);
+    if (e.key === 'ArrowLeft') slideRow(-1);
   });
   wireSlider();
 
