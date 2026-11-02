@@ -12,14 +12,17 @@ interface Dest extends Place {
   photo?: string; // Commons path for the featured places
   image?: string; // full URL once known
   tz?: string;
+  line?: string; // short tagline for the featured places
+  best?: string;
+  budget?: string; // rough 6-day estimate from Toronto, CAD
 }
 
 const FEATURED: Dest[] = [
-  { id: 'udaipur', name: 'Udaipur', country: 'India', region: 'Rajasthan', lat: 24.58, lng: 73.68, tz: 'Asia/Kolkata', photo: '6/6f/Evening_view%2C_City_Palace%2C_Udaipur.jpg' },
-  { id: 'kyoto', name: 'Kyoto', country: 'Japan', lat: 35.01, lng: 135.77, tz: 'Asia/Tokyo', photo: '0/0f/Golden_Pavilion_Kinkaku-ji_water_mirror_2024.jpg' },
-  { id: 'santorini', name: 'Santorini', country: 'Greece', lat: 36.42, lng: 25.43, tz: 'Europe/Athens', photo: '3/37/Oia_sunset_-_panoramio_%282%29.jpg' },
-  { id: 'banff', name: 'Banff', country: 'Canada', region: 'Alberta', lat: 51.18, lng: -115.57, tz: 'America/Edmonton', photo: 'c/c5/Moraine_Lake_17092005.jpg' },
-  { id: 'marrakech', name: 'Marrakesh', country: 'Morocco', lat: 31.63, lng: -7.99, tz: 'Africa/Casablanca', photo: '7/79/Djemaa_el_Fna.jpg' },
+  { id: 'udaipur', name: 'Udaipur', country: 'India', region: 'Rajasthan', lat: 24.58, lng: 73.68, tz: 'Asia/Kolkata', photo: '6/6f/Evening_view%2C_City_Palace%2C_Udaipur.jpg', line: 'Lakes, palaces and the softest sunsets in Rajasthan.', best: 'Oct – Mar', budget: '≈ CA$820' },
+  { id: 'kyoto', name: 'Kyoto', country: 'Japan', lat: 35.01, lng: 135.77, tz: 'Asia/Tokyo', photo: '0/0f/Golden_Pavilion_Kinkaku-ji_water_mirror_2024.jpg', line: 'Temples, tea houses and maple-red autumn streets.', best: 'Mar · Nov', budget: '≈ CA$1,450' },
+  { id: 'santorini', name: 'Santorini', country: 'Greece', lat: 36.42, lng: 25.43, tz: 'Europe/Athens', photo: '3/37/Oia_sunset_-_panoramio_%282%29.jpg', line: 'White villages above a deep blue caldera.', best: 'May – Sep', budget: '≈ CA$1,300' },
+  { id: 'banff', name: 'Banff', country: 'Canada', region: 'Alberta', lat: 51.18, lng: -115.57, tz: 'America/Edmonton', photo: 'c/c5/Moraine_Lake_17092005.jpg', line: 'Turquoise lakes and Rocky Mountain trails, close to home.', best: 'Jun – Sep', budget: '≈ CA$900' },
+  { id: 'marrakech', name: 'Marrakesh', country: 'Morocco', lat: 31.63, lng: -7.99, tz: 'Africa/Casablanca', photo: '7/79/Djemaa_el_Fna.jpg', line: 'Spice markets, riads and Atlas mountain day trips.', best: 'Mar – May', budget: '≈ CA$950' },
 ];
 const HOME_PHOTO = '8/8b/Toronto_Skyline_from_Snake_Island%2C_September_11_2026_%2801%29.jpg';
 const IMG = './textures/';
@@ -165,7 +168,6 @@ async function select(d: Dest): Promise<void> {
   world.pointOfView(wide() ? { lat: d.lat - 4, lng: d.lng + 34, altitude: 1.25 } : { lat: d.lat - 18, lng: d.lng, altitude: 1.7 }, 2200);
   $('hero').classList.add('away');
   $('clocks').style.opacity = '0';
-  $('stats').style.opacity = '0';
   fillCard(d);
   setTimeout(() => selected === d && $('card').classList.add('on'), 700);
 }
@@ -175,7 +177,6 @@ function closeCard(): void {
   $('card').classList.remove('on');
   $('hero').classList.remove('away');
   $('clocks').style.opacity = '1';
-  $('stats').style.opacity = '1';
   restyleArcs();
   world.pointOfView({ lat: 30, lng: 20, altitude: wide() ? 2.3 : 3 }, 1800);
   setTimeout(() => !selected && (world.controls().autoRotate = true), 1800);
@@ -189,16 +190,16 @@ async function fillCard(d: Dest): Promise<void> {
   img.alt = d.name;
   $('c-kicker').textContent = `${d.country || 'Somewhere new'} · from ${HOME.name}`;
   $('c-name').textContent = d.name;
-  $('c-extract').textContent = 'Reading about it…';
+  $('c-extract').textContent = d.line ?? 'Reading about it…';
   const km = distanceKm(HOME.lat, HOME.lng, d.lat, d.lng);
   const flight = km < 300 ? `${Math.max(1, Math.round(km / 80))} h drive` : `${Math.round(km / 830 + 0.6)} h`;
-  renderFacts([[km < 300 ? 'Drive' : 'Flight', flight], ['Now', '…'], ['Local time', '…'], ['Sunset', '…']]);
+  renderFacts(facts(d, flight, km, '…'));
   renderDays([]);
 
   const [summary, w, places] = await Promise.allSettled([citySummary(d), weather(d.lat, d.lng), nearbyAttractions(d.lat, d.lng)]);
   if (token !== cardToken) return;
   if (summary.status === 'fulfilled' && summary.value) {
-    $('c-extract').textContent = summary.value.extract.split(/(?<=\.)\s+/).slice(0, 2).join(' ');
+    if (!d.line) $('c-extract').textContent = summary.value.extract.split(/(?<=\.)\s+/).slice(0, 2).join(' ');
     if (!d.photo && summary.value.image) {
       img.src = summary.value.image;
       d.image = summary.value.thumb;
@@ -212,14 +213,17 @@ async function fillCard(d: Dest): Promise<void> {
     d.tz = w.value.timezone;
     const local = new Date().toLocaleTimeString('en-US', { timeZone: w.value.timezone, hour: 'numeric', minute: '2-digit' });
     const sunset = new Date(w.value.days[0].sunset).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    renderFacts([
-      [km < 300 ? 'Drive' : 'Flight', flight],
-      ['Now', `${Math.round(w.value.nowTemp)}° ${weatherIcon(w.value.nowCode).icon}`],
-      ['Local time', local],
-      ['Sunset', sunset],
-    ]);
+    renderFacts(facts(d, flight, km, `${Math.round(w.value.nowTemp)}° ${weatherIcon(w.value.nowCode).icon}`, local, sunset));
   }
   if (places.status === 'fulfilled') renderDays(rank(places.value, d.name).slice(0, 4).map((p) => p.image));
+}
+
+/** Featured places show best months and a budget, like the original design; anywhere else shows local time and sunset. */
+function facts(d: Dest, flight: string, km: number, now: string, local = '…', sunset = '…'): [string, string][] {
+  const first: [string, string][] = [[km < 300 ? 'Drive' : 'Flight', flight], ['Now', now]];
+  return d.best && d.budget
+    ? [...first, ['Best months', d.best], ['6 days', d.budget]]
+    : [...first, ['Local time', local], ['Sunset', sunset]];
 }
 
 function renderFacts(facts: [string, string][]): void {

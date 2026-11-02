@@ -3,7 +3,8 @@
 import maplibregl, { type GeoJSONSource, type Map as MLMap, type Marker } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { citySummary, nearbyAttractions, weather, weatherIcon, type Attraction, type Weather } from './api';
-import { clock, packing, plan, type DayPlan, type Item, type Pace } from './planner';
+import { resetAssistant, wireAssistant } from './assistant';
+import { clock, packing, plan, rank, type DayPlan, type Item, type Pace } from './planner';
 import { $, addDays, esc, parseTrip, prettyDate, saveTrip, toast, tripHash, type TripParams } from './shared';
 
 const DAY_COLORS = ['#5ef2d6', '#a48bff', '#ffb86b', '#6cc4ff', '#ff8fc8', '#c6f36b', '#ffd36b', '#8ff7e4', '#b9a8ff', '#ff9f8f'];
@@ -39,6 +40,7 @@ export async function openTrip(hash: string): Promise<boolean> {
         citySummary({ name: t.name, country: t.country }).catch(() => null),
       ]);
       cache = { key, places, weather: w, image: s?.thumb };
+      resetAssistant();
     } catch {
       loading(true, 'Could not reach the map data. Check your connection and try again.');
       return true;
@@ -47,6 +49,45 @@ export async function openTrip(hash: string): Promise<boolean> {
   }
   replan();
   return true;
+}
+
+/** What the assistant knows about the open trip. */
+export interface TripContext {
+  name: string;
+  country: string;
+  start: string;
+  pace: Pace;
+  days: string[];
+  weather: string;
+  extras: string[];
+  packing: string[];
+}
+
+function tripContext(): TripContext | null {
+  if (!trip || !cache) return null;
+  const planned = new Set(days.flatMap((d) => d.items.flatMap((i) => (i.type === 'stop' ? [i.stop.id] : []))));
+  return {
+    name: trip.name,
+    country: trip.country,
+    start: trip.start,
+    pace: trip.pace,
+    days: days.map((d, i) => {
+      const stops = d.items.flatMap((it) => (it.type === 'stop' ? [it.stop.title] : []));
+      return `Day ${i + 1}${d.date ? ` (${d.date})` : ''}: ${stops.join(', ') || 'free day'}`;
+    }),
+    weather: days
+      .flatMap((d, i) =>
+        d.weather
+          ? [`day ${i + 1} ${weatherIcon(d.weather.code).label.toLowerCase()} ${Math.round(d.weather.min)}–${Math.round(d.weather.max)}°C, ${d.weather.rain}% rain`]
+          : [],
+      )
+      .join('; '),
+    extras: rank(cache.places, trip.name)
+      .filter((p) => !planned.has(p.id))
+      .slice(0, 12)
+      .map((p) => p.title),
+    packing: packing(days, trip.country !== 'Canada').map((p) => `${p.item} (${p.why.toLowerCase()})`),
+  };
 }
 
 /** Nearby places; if the centre is thin, look a little further out too. */
@@ -167,6 +208,7 @@ function update(next: Partial<TripParams>): void {
 }
 
 export function wireTrip(): void {
+  wireAssistant(tripContext);
   $('t-back').onclick = () => (location.hash = '');
   const setLength = (n: number) => {
     const days = Math.min(10, Math.max(1, n));

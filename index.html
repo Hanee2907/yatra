@@ -97,6 +97,26 @@
         </section>
         <p class="note">Places, photos and descriptions from Wikipedia · weather from Open-Meteo. Check opening hours before you go.</p>
       </aside>
+      <button class="ask-open" id="ask-open" type="button"><i>✦</i> Ask Yatra</button>
+      <aside class="ask glass" id="ask" aria-label="Travel assistant">
+        <header class="ask-top">
+          <div><small class="kicker">Ask Yatra</small><b>About <span id="ask-city">this trip</span></b></div>
+          <button class="ghost" id="ask-forget" type="button" hidden>Forget key</button>
+          <button class="x" id="ask-close" type="button" aria-label="Close assistant">✕</button>
+        </header>
+        <form class="ask-setup" id="ask-key-form" autocomplete="off">
+          <div id="ask-setup">
+            <p>For full answers, paste your own <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic API key</a>. It stays only in this browser. Without one, I can still suggest places and help you pack.</p>
+            <div class="ask-row"><input id="ask-key" type="password" placeholder="sk-ant-…" aria-label="Anthropic API key" /><button class="ghost" type="submit">Save</button></div>
+          </div>
+        </form>
+        <div class="ask-log" id="ask-log" aria-live="polite"></div>
+        <div class="ask-chips" id="ask-chips"></div>
+        <form class="ask-row ask-form" id="ask-form" autocomplete="off">
+          <input id="ask-input" placeholder="Ask anything about this city…" aria-label="Ask a question" />
+          <button type="submit" aria-label="Send">➤</button>
+        </form>
+      </aside>
       <div class="loading glass" id="loading" hidden><i class="spinner"></i><span id="loading-text">Finding the best places…</span></div>
     </div>
 

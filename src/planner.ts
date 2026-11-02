@@ -41,7 +41,7 @@ export interface DayPlan {
 export const STOPS_PER_DAY: Record<Pace, number> = { slow: 3, balanced: 4, packed: 5 };
 
 const SKIP =
-  /school|college|universit|hospital|station|airport|district|village|neighbourhood|suburb|constituency|company|bank|hotel|road|street|highway|tehsil|railway|stadium|census|assembly|lok sabha|municipal|human settlement|city in|town in|area of|locality|ward |cemetery|power plant|dam |office|court|prison|embassy|consulate|apartment|residential|campus|metro|tram|bus /i;
+  /school|college|universit|hospital|station|airport|district|village|neighbourhood|suburb|constituency|company|bank|hotel|road|street|highway|tehsil|railway|stadium|census|assembly|lok sabha|municipal|human settlement|city in|town in|area of|locality|ward |cemetery|power plant|dam |office|court|prison|embassy|consulate|apartment|residential|campus|metro|tram|bus |diocese|organi[sz]ation|political party|newspaper|clubb/i;
 
 const KINDS: { re: RegExp; tag: string; kind: Kind; minutes: number; weight: number; sunset?: boolean }[] = [
   { re: /museum|gallery/i, tag: 'Museum', kind: 'indoor', minutes: 120, weight: 4 },
