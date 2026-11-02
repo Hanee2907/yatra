@@ -3,8 +3,8 @@
 
 import { update as updateTweens } from '@tweenjs/tween.js';
 import Globe, { type GlobeInstance } from 'globe.gl';
-import { citySummary, distanceKm, searchPlaces, weather, weatherIcon, type Place, type Weather } from './api';
-import type { Pace } from './planner';
+import { citySummary, distanceKm, nearbyAttractions, searchPlaces, weather, weatherIcon, type Place } from './api';
+import { rank } from './planner';
 import { $, HOME, addDays, commons, esc, isoDay, prettyDate, savedTrips, tripHash } from './shared';
 
 interface Dest extends Place {
@@ -31,9 +31,6 @@ const thumb = (d: Dest) => d.image ?? (d.photo ? commons(d.photo, 120) : '');
 let world: GlobeInstance;
 let dests: Dest[] = FEATURED.slice();
 let selected: Dest | null = null;
-let days = 4;
-let pace: Pace = 'balanced';
-let cardWeather: Weather | null = null;
 let started = false;
 
 export function startHome(): void {
@@ -47,6 +44,7 @@ export function startHome(): void {
   wireCard();
   wireTrips();
   renderChips();
+  stats();
   headlineSwap();
   clocks();
   tour();
@@ -75,7 +73,7 @@ function buildGlobe(): void {
     .bumpImageUrl(IMG + 'earth-topology.png')
     .backgroundImageUrl(IMG + 'night-sky.png')
     .showAtmosphere(true)
-    .atmosphereColor('#7fe9ff')
+    .atmosphereColor('#7cc8ff')
     .atmosphereAltitude(0.24)
     .arcColor((a: object) =>
       (a as Dest).id === selected?.id ? [MINT, VIOLET] : ['rgba(94,242,214,.06)', 'rgba(94,242,214,.6)'],
@@ -105,7 +103,7 @@ function buildGlobe(): void {
   const controls = world.controls();
   controls.autoRotate = true;
   controls.autoRotateSpeed = 0.45;
-  world.pointOfView({ lat: 28, lng: 10, altitude: wide() ? 2.3 : 3 });
+  world.pointOfView({ lat: 30, lng: 20, altitude: wide() ? 2.3 : 3 });
   addEventListener('resize', () => world.width(innerWidth).height(innerHeight));
   // Sit the globe beside the headline on wide screens.
   const shift = () => (el.style.transform = wide() ? 'translateX(14%)' : 'translateY(30%)');
@@ -167,6 +165,7 @@ async function select(d: Dest): Promise<void> {
   world.pointOfView(wide() ? { lat: d.lat - 4, lng: d.lng + 34, altitude: 1.25 } : { lat: d.lat - 18, lng: d.lng, altitude: 1.7 }, 2200);
   $('hero').classList.add('away');
   $('clocks').style.opacity = '0';
+  $('stats').style.opacity = '0';
   fillCard(d);
   setTimeout(() => selected === d && $('card').classList.add('on'), 700);
 }
@@ -176,8 +175,9 @@ function closeCard(): void {
   $('card').classList.remove('on');
   $('hero').classList.remove('away');
   $('clocks').style.opacity = '1';
+  $('stats').style.opacity = '1';
   restyleArcs();
-  world.pointOfView({ lat: 28, lng: 10, altitude: wide() ? 2.3 : 3 }, 1800);
+  world.pointOfView({ lat: 30, lng: 20, altitude: wide() ? 2.3 : 3 }, 1800);
   setTimeout(() => !selected && (world.controls().autoRotate = true), 1800);
 }
 
@@ -191,16 +191,14 @@ async function fillCard(d: Dest): Promise<void> {
   $('c-name').textContent = d.name;
   $('c-extract').textContent = 'Reading about it…';
   const km = distanceKm(HOME.lat, HOME.lng, d.lat, d.lng);
-  const flight = km < 300 ? `${Math.max(1, Math.round(km / 80))} h drive` : `≈ ${Math.round(km / 830 + 0.6)} h flight`;
-  renderFacts([['Getting there', flight], ['Local time', '…'], ['Right now', '…'], ['Sunset', '…']]);
-  $('c-week').innerHTML = '';
-  cardWeather = null;
+  const flight = km < 300 ? `${Math.max(1, Math.round(km / 80))} h drive` : `${Math.round(km / 830 + 0.6)} h`;
+  renderFacts([[km < 300 ? 'Drive' : 'Flight', flight], ['Now', '…'], ['Local time', '…'], ['Sunset', '…']]);
+  renderDays([]);
 
-  const [summary, w] = await Promise.allSettled([citySummary(d), weather(d.lat, d.lng)]);
+  const [summary, w, places] = await Promise.allSettled([citySummary(d), weather(d.lat, d.lng), nearbyAttractions(d.lat, d.lng)]);
   if (token !== cardToken) return;
   if (summary.status === 'fulfilled' && summary.value) {
-    const firstTwo = summary.value.extract.split(/(?<=\.)\s+/).slice(0, 2).join(' ');
-    $('c-extract').textContent = firstTwo;
+    $('c-extract').textContent = summary.value.extract.split(/(?<=\.)\s+/).slice(0, 2).join(' ');
     if (!d.photo && summary.value.image) {
       img.src = summary.value.image;
       d.image = summary.value.thumb;
@@ -208,61 +206,34 @@ async function fillCard(d: Dest): Promise<void> {
       restyleArcs();
     }
   } else {
-    $('c-extract').textContent = `${d.name}${d.region ? `, ${d.region}` : ''} — let's see what's worth your days there.`;
+    $('c-extract').textContent = `${d.name}${d.region ? `, ${d.region}` : ''}: let's see what's worth your days there.`;
   }
   if (w.status === 'fulfilled') {
-    cardWeather = w.value;
     d.tz = w.value.timezone;
-    const today = w.value.days[0];
     const local = new Date().toLocaleTimeString('en-US', { timeZone: w.value.timezone, hour: 'numeric', minute: '2-digit' });
-    const sunset = new Date(today.sunset).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const sunset = new Date(w.value.days[0].sunset).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     renderFacts([
-      ['Getting there', flight],
+      [km < 300 ? 'Drive' : 'Flight', flight],
+      ['Now', `${Math.round(w.value.nowTemp)}° ${weatherIcon(w.value.nowCode).icon}`],
       ['Local time', local],
-      ['Right now', `${Math.round(w.value.nowTemp)}° ${weatherIcon(w.value.nowCode).icon}`],
       ['Sunset', sunset],
     ]);
-    renderWeek();
   }
+  if (places.status === 'fulfilled') renderDays(rank(places.value, d.name).slice(0, 4).map((p) => p.image));
 }
 
 function renderFacts(facts: [string, string][]): void {
   $('c-facts').innerHTML = facts.map(([k, v]) => `<div><span>${k}</span><b>${esc(v)}</b></div>`).join('');
 }
 
-/** Seven forecast days from the chosen start date, with rainy ones tinted. */
-function renderWeek(): void {
-  const start = $<HTMLInputElement>('c-start').value;
-  const list = cardWeather?.days.filter((x) => x.date >= start).slice(0, 7) ?? [];
-  $('c-week').innerHTML = list.length
-    ? list
-        .map((x, i) => {
-          const inTrip = i < days;
-          return `<div class="${x.rain >= 50 ? 'rain' : ''}" style="${inTrip ? '' : 'opacity:.45'}" title="${weatherIcon(x.code).label}, ${x.rain}% rain">${prettyDate(x.date, { weekday: 'narrow' })}<b>${weatherIcon(x.code).icon}</b>${Math.round(x.max)}°</div>`;
-        })
-        .join('')
-    : '';
+/** A peek at the trip: one photo per day, from the best places nearby. */
+function renderDays(photos: string[]): void {
+  $('c-days').innerHTML = [0, 1, 2, 3]
+    .map((i) => `<i style="${photos[i] ? `background-image:url('${esc(photos[i])}');` : ''}animation-delay:${i * 80}ms">Day ${i + 1}</i>`)
+    .join('');
 }
 
 function wireCard(): void {
-  const start = $<HTMLInputElement>('c-start');
-  start.value = addDays(isoDay(new Date()), 7);
-  start.min = isoDay(new Date());
-  start.onchange = renderWeek;
-  const setDays = (n: number) => {
-    days = Math.min(10, Math.max(1, n));
-    $('c-days').textContent = `${days} day${days > 1 ? 's' : ''}`;
-    renderWeek();
-  };
-  $('c-minus').onclick = () => setDays(days - 1);
-  $('c-plus').onclick = () => setDays(days + 1);
-  setDays(days);
-  $('c-pace').onclick = (e) => {
-    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
-    if (!b) return;
-    pace = b.dataset.pace as Pace;
-    $('c-pace').querySelectorAll('button').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
-  };
   $('c-close').onclick = () => {
     stopTour();
     closeCard();
@@ -275,13 +246,28 @@ function wireCard(): void {
       country: selected.country,
       lat: selected.lat,
       lng: selected.lng,
-      start: start.value || isoDay(new Date()),
-      days,
-      pace,
+      start: addDays(isoDay(new Date()), 7),
+      days: 4,
+      pace: 'balanced',
       removed: [],
     });
   };
   addEventListener('keydown', (e) => e.key === 'Escape' && selected && !$('home').hidden && closeCard());
+}
+
+/** Live numbers under the headline, like the original design. */
+function stats(): void {
+  const km = FEATURED.reduce((sum, d) => sum + distanceKm(HOME.lat, HOME.lng, d.lat, d.lng), 0);
+  const draw = (temp = '…') => {
+    $('stats').innerHTML =
+      `<div><b>${FEATURED.length}</b>dream trips</div>` +
+      `<div><b>${Math.round(km).toLocaleString('en-US')} km</b>of routes from ${HOME.name}</div>` +
+      `<div><b>${temp}</b>in ${FEATURED[0].name} now</div>`;
+  };
+  draw();
+  weather(FEATURED[0].lat, FEATURED[0].lng)
+    .then((w) => draw(`${Math.round(w.nowTemp)}°`))
+    .catch(() => undefined);
 }
 
 // ---------- Search ----------
@@ -456,6 +442,8 @@ function updateTripCount(): void {
 
 function wireTrips(): void {
   const pop = $('trips-pop');
+  $('nav-explore').onclick = () => selected && closeCard();
+  $('nav-saved').onclick = (e) => $('nav-trips').onclick!(e);
   $('nav-trips').onclick = (e) => {
     e.stopPropagation();
     const list = savedTrips();

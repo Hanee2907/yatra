@@ -24,6 +24,8 @@ export async function openTrip(hash: string): Promise<boolean> {
   $('t-kicker').textContent = `${t.country ? `${t.country} · ` : ''}${prettyDate(t.start, { month: 'short', day: 'numeric' })} – ${prettyDate(addDays(t.start, t.days - 1), { month: 'short', day: 'numeric' })}`;
   $('t-title').innerHTML = `${t.days} days in <em>${esc(t.name)}</em>`;
   $('t-pace').querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.pace === t.pace)));
+  $<HTMLInputElement>('t-start').value = t.start;
+  $('t-len').textContent = `${t.days} day${t.days > 1 ? 's' : ''}`;
 
   const key = `${t.lat},${t.lng}`;
   if (cache?.key !== key) {
@@ -166,6 +168,16 @@ function update(next: Partial<TripParams>): void {
 
 export function wireTrip(): void {
   $('t-back').onclick = () => (location.hash = '');
+  const setLength = (n: number) => {
+    const days = Math.min(10, Math.max(1, n));
+    if (days !== trip.days) location.hash = tripHash({ ...trip, days });
+  };
+  $('t-minus').onclick = () => setLength(trip.days - 1);
+  $('t-plus').onclick = () => setLength(trip.days + 1);
+  $<HTMLInputElement>('t-start').onchange = (e) => {
+    const start = (e.target as HTMLInputElement).value;
+    if (start) location.hash = tripHash({ ...trip, start });
+  };
   $('t-pace').onclick = (e) => {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
     if (b && b.dataset.pace !== trip.pace) update({ pace: b.dataset.pace as Pace });
