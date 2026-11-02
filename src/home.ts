@@ -109,7 +109,11 @@ function buildGlobe(): void {
   world.pointOfView({ lat: 30, lng: 20, altitude: wide() ? 2.3 : 3 });
   addEventListener('resize', () => world.width(innerWidth).height(innerHeight));
   // Sit the globe beside the headline on wide screens.
-  const shift = () => (el.style.transform = wide() ? 'translateX(14%)' : 'translateY(30%)');
+  // Exactly as in the approved design: on wide screens only the canvas moves right, the pins stay put.
+  const shift = () => {
+    world.renderer().domElement.style.transform = wide() ? 'translateX(14%)' : '';
+    el.style.transform = wide() ? '' : 'translateY(30%)';
+  };
   shift();
   addEventListener('resize', shift);
   hideBackPins();
