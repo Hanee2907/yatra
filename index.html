@@ -49,7 +49,12 @@
       <div class="card-backdrop" id="card-backdrop"></div>
       <aside class="card glass" id="card" aria-live="polite">
         <img class="cover" id="c-img" alt="" />
-        <div class="card-body">
+        <nav class="slide-nav" id="c-nav" aria-label="Destinations">
+          <button type="button" class="arrow" id="c-prev" aria-label="Previous city">‹</button>
+          <div class="dots" id="c-dots"></div>
+          <button type="button" class="arrow" id="c-next" aria-label="Next city">›</button>
+        </nav>
+        <div class="card-body" id="c-body">
           <small class="kicker" id="c-kicker"></small>
           <h2 id="c-name"></h2>
           <p class="extract" id="c-extract"></p>
@@ -59,11 +64,13 @@
             <button class="go" id="c-plan">Plan my days ✦</button>
             <button class="back" id="c-close">Back to globe</button>
           </div>
-          <div class="scroll-hint" aria-hidden="true">Scroll for more ↓</div>
-          <section class="card-more" aria-label="Trip options">
+          <div class="swipe-hint" aria-hidden="true">← Swipe for the next city · scroll for weather &amp; trip ↓</div>
+          <section class="card-extra" aria-label="Weather and trip options">
             <small class="kicker">Next 7 days</small>
-            <div class="week" id="c-week"></div>
+            <h3 class="slide-title" id="c-wx-title">The week ahead</h3>
+            <div class="week-list" id="c-week"></div>
             <small class="kicker">Your trip</small>
+            <h3 class="slide-title">Make it yours</h3>
             <div class="setup">
               <label>Start <input type="date" id="c-start" /></label>
               <div class="stepper" aria-label="Number of days">
@@ -77,6 +84,7 @@
               <button role="radio" aria-checked="true" data-pace="balanced">Balanced</button>
               <button role="radio" aria-checked="false" data-pace="packed">Packed</button>
             </div>
+            <p class="pace-note" id="c-pace-note">About 4 places a day, with time to wander.</p>
             <button class="go wide" id="c-plan-2">Plan these days ✦</button>
           </section>
         </div>

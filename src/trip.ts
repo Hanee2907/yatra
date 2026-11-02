@@ -247,10 +247,21 @@ export function wireTrip(): void {
     const stop = (e.target as HTMLElement).closest<HTMLElement>('.stop');
     markers.forEach((m) => m.getElement().classList.toggle('hl', m.getElement().dataset.id === stop?.dataset.id));
   };
+  // The whole plan lives in the link, so sharing needs no account or database.
+  // Where the device has a share sheet (phones, Windows, Mac), it opens WhatsApp, Messages, mail and so on.
   $('t-share').onclick = async () => {
+    const text = `${trip.days} days in ${trip.name} — here's our plan on Yatra ✈️`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `Yatra · ${trip.name}`, text, url: location.href });
+        return;
+      } catch (e) {
+        if ((e as DOMException).name === 'AbortError') return;
+      }
+    }
     try {
       await navigator.clipboard.writeText(location.href);
-      toast('Link copied. Anyone with it sees this exact plan.');
+      toast('Link copied. Your friend will see this exact plan.');
     } catch {
       toast('Copy the address bar to share this plan');
     }

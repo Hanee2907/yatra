@@ -632,30 +632,8 @@ button {
   height: 280px;
 }
 
-.scroll-hint {
-  margin-top: 12px;
-  text-align: center;
-  color: var(--acc);
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  opacity: 0;
-  transition: opacity 0.4s;
-  animation: nudge 1.6s ease-in-out infinite;
-}
-
-.card.on.focus .scroll-hint {
-  opacity: 0.9;
-}
-
-@keyframes nudge {
-  50% {
-    transform: translateY(4px);
-  }
-}
-
-/* Folded away until the panel is hovered, so it looks exactly like the original at rest */
-.card-more {
+/* Centred panel: slide sideways between cities; weather and trip options unfold below. */
+.card-extra {
   display: grid;
   gap: 10px;
   max-height: 0;
@@ -667,52 +645,247 @@ button {
   transition: max-height 0.6s var(--ease), opacity 0.4s, margin 0.4s, padding 0.4s, border-color 0.4s;
 }
 
-.card.on.focus .card-more {
-  max-height: 520px;
+.card.on.focus .card-extra {
+  max-height: 900px;
   margin-top: 16px;
   padding-top: 16px;
   border-top-color: var(--edge);
   opacity: 1;
 }
 
-.scroll-hint {
+.card.on.focus .card-body {
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.card.on.focus .card-body.dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+/* The city content glides out one way and the next city glides in from the other */
+.card-body.leave-left {
+  animation: leave-left 0.28s ease-in forwards;
+}
+
+.card-body.leave-right {
+  animation: leave-right 0.28s ease-in forwards;
+}
+
+.card-body.enter-right {
+  animation: enter-right 0.45s var(--ease) both;
+}
+
+.card-body.enter-left {
+  animation: enter-left 0.45s var(--ease) both;
+}
+
+.cover.swap {
+  animation: cover-in 0.6s var(--ease) both;
+}
+
+@keyframes leave-left {
+  to {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+}
+
+@keyframes leave-right {
+  to {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+}
+
+@keyframes enter-right {
+  from {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+}
+
+@keyframes enter-left {
+  from {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+}
+
+@keyframes cover-in {
+  from {
+    opacity: 0.2;
+    transform: scale(1.06);
+  }
+}
+
+.slide-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   max-height: 0;
+  padding: 0 14px;
   overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.5s var(--ease), opacity 0.4s, padding 0.4s;
 }
 
-.card.on.focus .scroll-hint {
-  max-height: 30px;
+.card.on.focus .slide-nav {
+  max-height: 60px;
+  padding: 12px 14px 0;
+  opacity: 1;
 }
 
-.week {
+.dots {
   display: flex;
   gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--edge);
 }
 
-.week div {
-  flex: 1;
-  padding: 7px 0;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  text-align: center;
-  font-size: 11px;
+.dots button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
   color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 0.3s, color 0.3s;
+}
+
+.dots button[aria-current='true'] {
+  background: var(--acc);
+  color: var(--acc-ink);
+}
+
+/* One small photo per city; the current city also shows its name */
+.dots button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px;
+}
+
+.dots button img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.dots button span {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.4s var(--ease), padding 0.4s;
+}
+
+.dots button[aria-current='true'] span {
+  max-width: 90px;
+  padding-right: 8px;
+}
+
+.arrow {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--edge);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 20px;
+  line-height: 1;
+  transition: background 0.3s, opacity 0.3s;
+}
+
+.arrow:hover {
+  background: rgba(94, 242, 214, 0.15);
+}
+
+.arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.swipe-hint {
+  max-height: 0;
+  overflow: hidden;
+  margin-top: 0;
+  text-align: center;
+  color: var(--acc);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  opacity: 0;
+  transition: opacity 0.4s, max-height 0.4s, margin 0.4s;
+}
+
+.card.on.focus .swipe-hint {
+  max-height: 30px;
+  margin-top: 12px;
+  opacity: 0.9;
+  animation: nudge-x 1.6s ease-in-out infinite;
+}
+
+@keyframes nudge-x {
+  50% {
+    transform: translateX(5px);
+  }
+}
+
+.slide-title {
+  margin: 4px 0 14px;
+  font: 400 30px/1.05 var(--serif);
+}
+
+.week-list {
+  display: grid;
+  gap: 6px;
+}
+
+.week-list div {
+  display: grid;
+  grid-template-columns: 64px 30px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--edge);
+  font-size: 13px;
   animation: rise 0.5s var(--ease) both;
 }
 
-.week b {
-  display: block;
-  font-size: 15px;
+.week-list b {
+  font-size: 18px;
+  text-align: center;
 }
 
-.week .rain {
-  background: rgba(164, 139, 255, 0.18);
+.week-list span {
+  color: var(--ink-2);
+  font-size: 12px;
 }
 
-.week .out {
+.week-list .t {
+  font: 500 16px var(--serif);
+}
+
+.week-list .rain {
+  background: rgba(164, 139, 255, 0.16);
+  border-color: rgba(164, 139, 255, 0.35);
+}
+
+.week-list .out {
   opacity: 0.45;
 }
 
+.pace-note {
+  margin: 0 0 14px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
 .go.wide {
   width: 100%;
   padding: 14px;

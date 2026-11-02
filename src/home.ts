@@ -193,6 +193,7 @@ function closeCard(): void {
 let cardToken = 0;
 async function fillCard(d: Dest): Promise<void> {
   const token = ++cardToken;
+  markSlide();
   const img = $<HTMLImageElement>('c-img');
   img.src = d.photo ? commons(d.photo, 960) : d.image ?? '';
   img.alt = d.name;
@@ -253,15 +254,121 @@ function renderDays(photos: string[]): void {
 function renderWeek(): void {
   const start = $<HTMLInputElement>('c-start').value;
   const list = cardWeather?.days.filter((x) => x.date >= start).slice(0, 7) ?? [];
+  $('c-wx-title').textContent = selected ? `The week in ${selected.name}` : 'The week ahead';
   $('c-week').innerHTML = list.length
     ? list
         .map((x, i) => {
           const cls = [x.rain >= 50 ? 'rain' : '', i >= tripDays ? 'out' : ''].join(' ');
           const { icon, label } = weatherIcon(x.code);
-          return `<div class="${cls}" title="${label}, ${x.rain}% rain" style="animation-delay:${i * 50}ms">${prettyDate(x.date, { weekday: 'narrow' })}<b>${icon}</b>${Math.round(x.max)}°</div>`;
+          return (
+            `<div class="${cls}" style="animation-delay:${i * 50}ms">` +
+            `<span>${prettyDate(x.date, { weekday: 'short', day: 'numeric' })}</span><b>${icon}</b>` +
+            `<span>${label} · ${x.rain}% rain</span><span class="t">${Math.round(x.max)}° / ${Math.round(x.min)}°</span></div>`
+          );
         })
         .join('')
-    : '<div>Forecast loading…</div>';
+    : '<div><span>Forecast loading…</span></div>';
+}
+
+const PACE_NOTES: Record<Pace, string> = {
+  slow: 'About 3 places a day, long lunches and slow evenings.',
+  balanced: 'About 4 places a day, with time to wander.',
+  packed: 'About 5 places a day, for seeing as much as you can.',
+};
+
+// ---------- Panel slider: swipe from city to city ----------
+
+let sliding = false;
+
+/** Slide to the next (1) or previous (-1) featured city; it loops, and the globe flies along. */
+function slideCity(step: 1 | -1): void {
+  if (sliding) return;
+  sliding = true;
+  const at = FEATURED.findIndex((f) => f.id === selected?.id);
+  const next = FEATURED[(((at < 0 ? (step > 0 ? -1 : 0) : at) + step) % FEATURED.length + FEATURED.length) % FEATURED.length];
+  const body = $('c-body');
+  body.classList.remove('enter-left', 'enter-right');
+  body.classList.add(step > 0 ? 'leave-left' : 'leave-right');
+  setTimeout(() => {
+    body.classList.remove('leave-left', 'leave-right');
+    $('card').scrollTop = 0;
+    select(next);
+    body.classList.add(step > 0 ? 'enter-right' : 'enter-left');
+    const cover = $('c-img');
+    cover.classList.remove('swap');
+    void cover.offsetWidth;
+    cover.classList.add('swap');
+    sliding = false;
+  }, 280);
+}
+
+function renderDots(): void {
+  $('c-dots').innerHTML = FEATURED.map(
+    (d, i) => `<button type="button" data-i="${i}" aria-label="${d.name}"><img src="${thumb(d)}" alt=""><span>${d.name}</span></button>`,
+  ).join('');
+}
+
+function markSlide(): void {
+  $('c-dots')
+    .querySelectorAll<HTMLButtonElement>('button')
+    .forEach((b) => b.setAttribute('aria-current', String(FEATURED[Number(b.dataset.i)].id === selected?.id)));
+}
+
+function wireSlider(): void {
+  renderDots();
+  $('c-prev').onclick = () => slideCity(-1);
+  $('c-next').onclick = () => slideCity(1);
+  $('c-dots').onclick = (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
+    if (!b) return;
+    const to = FEATURED[Number(b.dataset.i)];
+    const at = FEATURED.findIndex((f) => f.id === selected?.id);
+    if (to.id === selected?.id) return;
+    // jump straight there, gliding in from the side it sits on
+    const body = $('c-body');
+    body.classList.remove('enter-left', 'enter-right');
+    void body.offsetWidth;
+    select(to);
+    body.classList.add(Number(b.dataset.i) > at ? 'enter-right' : 'enter-left');
+  };
+  const card = $('card');
+  // Trackpad: a two-finger sideways swipe moves one city.
+  let wheelLock = 0;
+  card.addEventListener(
+    'wheel',
+    (e) => {
+      if (!card.classList.contains('focus') || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      if (Date.now() < wheelLock || Math.abs(e.deltaX) < 12) return;
+      wheelLock = Date.now() + 700;
+      slideCity(e.deltaX > 0 ? 1 : -1);
+    },
+    { passive: false },
+  );
+  // Mouse drag or finger swipe across the panel.
+  const body = $('c-body');
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+  body.addEventListener('pointerdown', (e) => {
+    if (!card.classList.contains('focus') || (e.target as HTMLElement).closest('button, input, label, a')) return;
+    tracking = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    body.classList.add('dragging');
+  });
+  const end = (e: PointerEvent) => {
+    if (!tracking) return;
+    tracking = false;
+    body.classList.remove('dragging');
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(e.clientY - startY)) slideCity(dx < 0 ? 1 : -1);
+  };
+  addEventListener('pointerup', end);
+  addEventListener('pointercancel', () => {
+    tracking = false;
+    body.classList.remove('dragging');
+  });
 }
 
 function wireCard(): void {
@@ -282,15 +389,14 @@ function wireCard(): void {
     if (!b) return;
     tripPace = b.dataset.pace as Pace;
     $('c-pace').querySelectorAll('button').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+    $('c-pace-note').textContent = PACE_NOTES[tripPace];
   };
   // Hovering the panel pauses the tour and brings the panel to the centre, bigger.
-  // It stays there until the pointer has been inside it and leaves, the backdrop is clicked, or Esc.
+  // It stays there, free to slide, until you click outside it, press Esc, or go back to the globe.
   const card = $('card');
-  let inside = false;
   const focus = () => {
     if (!card.classList.contains('on') || card.classList.contains('focus') || !wide()) return;
     stopTour();
-    inside = false;
     card.classList.add('focus');
     $('card-backdrop').classList.add('on');
   };
@@ -299,11 +405,19 @@ function wireCard(): void {
     $('card-backdrop').classList.remove('on');
     card.scrollTop = 0;
   };
-  card.addEventListener('mouseenter', () => (card.classList.contains('focus') ? (inside = true) : focus()));
-  card.addEventListener('mouseleave', () => inside && unfocus());
+  card.addEventListener('mouseenter', focus);
   card.addEventListener('focusin', stopTour);
   $('card-backdrop').onclick = unfocus;
-  addEventListener('keydown', (e) => e.key === 'Escape' && card.classList.contains('focus') && unfocus());
+  addEventListener('keydown', (e) => {
+    if (!card.classList.contains('focus')) return;
+    if (e.key === 'Escape') {
+      e.preventDefault(); // slide back only; a second Esc closes the panel
+      unfocus();
+    }
+    if (e.key === 'ArrowRight') slideCity(1);
+    if (e.key === 'ArrowLeft') slideCity(-1);
+  });
+  wireSlider();
 
   $('c-close').onclick = () => {
     stopTour();
@@ -325,7 +439,7 @@ function wireCard(): void {
   };
   $('c-plan').onclick = plan;
   $('c-plan-2').onclick = plan;
-  addEventListener('keydown', (e) => e.key === 'Escape' && selected && !$('home').hidden && closeCard());
+  addEventListener('keydown', (e) => e.key === 'Escape' && !e.defaultPrevented && selected && !$('home').hidden && closeCard());
 }
 
 /** Live numbers under the headline, like the original design. */
