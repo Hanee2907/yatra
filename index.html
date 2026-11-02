@@ -46,6 +46,7 @@
       <div class="tour glass" id="tour"><span id="tour-label">✦ World tour</span><div class="bar"><i></i></div><span id="tour-next"></span></div>
       <div class="credit">Earth imagery: NASA via three-globe · photos Wikimedia Commons</div>
 
+      <div class="card-backdrop" id="card-backdrop"></div>
       <aside class="card glass" id="card" aria-live="polite">
         <img class="cover" id="c-img" alt="" />
         <div class="card-body">
@@ -58,6 +59,26 @@
             <button class="go" id="c-plan">Plan my days ✦</button>
             <button class="back" id="c-close">Back to globe</button>
           </div>
+          <div class="scroll-hint" aria-hidden="true">Scroll for more ↓</div>
+          <section class="card-more" aria-label="Trip options">
+            <small class="kicker">Next 7 days</small>
+            <div class="week" id="c-week"></div>
+            <small class="kicker">Your trip</small>
+            <div class="setup">
+              <label>Start <input type="date" id="c-start" /></label>
+              <div class="stepper" aria-label="Number of days">
+                <button type="button" id="c-minus" aria-label="Fewer days">−</button>
+                <span id="c-len">4 days</span>
+                <button type="button" id="c-plus" aria-label="More days">+</button>
+              </div>
+            </div>
+            <div class="seg seg-sm" id="c-pace" role="radiogroup" aria-label="Pace">
+              <button role="radio" aria-checked="false" data-pace="slow">Slow</button>
+              <button role="radio" aria-checked="true" data-pace="balanced">Balanced</button>
+              <button role="radio" aria-checked="false" data-pace="packed">Packed</button>
+            </div>
+            <button class="go wide" id="c-plan-2">Plan these days ✦</button>
+          </section>
         </div>
       </aside>
     </div>

@@ -593,6 +593,137 @@ button {
   font-weight: 700;
 }
 
+/* Hover the panel: it glides to the centre, grows, and opens up for scrolling */
+.card.on.focus {
+  z-index: 8;
+  width: 500px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  /* right edge sits 36px from the viewport edge; move it so the panel's centre meets the screen's centre */
+  transform: translate(calc(-50vw + 36px + 50%), -50%);
+  box-shadow: 0 40px 120px -30px rgba(94, 242, 214, 0.5), 0 0 0 1px rgba(94, 242, 214, 0.35);
+}
+
+.card-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  background: rgba(2, 4, 12, 0.45);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s;
+}
+
+.card-backdrop.on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.card {
+  transition: transform 0.9s var(--ease), opacity 0.6s, width 0.5s var(--ease), max-height 0.5s var(--ease), box-shadow 0.5s;
+}
+
+.card .cover {
+  transition: height 0.5s var(--ease);
+}
+
+.card.on.focus .cover {
+  height: 280px;
+}
+
+.scroll-hint {
+  margin-top: 12px;
+  text-align: center;
+  color: var(--acc);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0;
+  transition: opacity 0.4s;
+  animation: nudge 1.6s ease-in-out infinite;
+}
+
+.card.on.focus .scroll-hint {
+  opacity: 0.9;
+}
+
+@keyframes nudge {
+  50% {
+    transform: translateY(4px);
+  }
+}
+
+/* Folded away until the panel is hovered, so it looks exactly like the original at rest */
+.card-more {
+  display: grid;
+  gap: 10px;
+  max-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 1px solid transparent;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.6s var(--ease), opacity 0.4s, margin 0.4s, padding 0.4s, border-color 0.4s;
+}
+
+.card.on.focus .card-more {
+  max-height: 520px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top-color: var(--edge);
+  opacity: 1;
+}
+
+.scroll-hint {
+  max-height: 0;
+  overflow: hidden;
+}
+
+.card.on.focus .scroll-hint {
+  max-height: 30px;
+}
+
+.week {
+  display: flex;
+  gap: 4px;
+}
+
+.week div {
+  flex: 1;
+  padding: 7px 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  text-align: center;
+  font-size: 11px;
+  color: var(--ink-2);
+  animation: rise 0.5s var(--ease) both;
+}
+
+.week b {
+  display: block;
+  font-size: 15px;
+}
+
+.week .rain {
+  background: rgba(164, 139, 255, 0.18);
+}
+
+.week .out {
+  opacity: 0.45;
+}
+
+.go.wide {
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--acc);
+  color: var(--acc-ink);
+  font-weight: 700;
+  font-size: 14px;
+}
+
 /* Trip setup controls (date, days) */
 .setup {
   display: flex;

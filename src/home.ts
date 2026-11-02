@@ -3,8 +3,8 @@
 
 import { update as updateTweens } from '@tweenjs/tween.js';
 import Globe, { type GlobeInstance } from 'globe.gl';
-import { citySummary, distanceKm, nearbyAttractions, searchPlaces, weather, weatherIcon, type Place } from './api';
-import { rank } from './planner';
+import { citySummary, distanceKm, nearbyAttractions, searchPlaces, weather, weatherIcon, type Place, type Weather } from './api';
+import { rank, type Pace } from './planner';
 import { $, HOME, addDays, commons, esc, isoDay, prettyDate, savedTrips, tripHash } from './shared';
 
 interface Dest extends Place {
@@ -34,6 +34,9 @@ const thumb = (d: Dest) => d.image ?? (d.photo ? commons(d.photo, 120) : '');
 let world: GlobeInstance;
 let dests: Dest[] = FEATURED.slice();
 let selected: Dest | null = null;
+let cardWeather: Weather | null = null;
+let tripDays = 4;
+let tripPace: Pace = 'balanced';
 let started = false;
 
 export function startHome(): void {
@@ -178,7 +181,8 @@ async function select(d: Dest): Promise<void> {
 
 function closeCard(): void {
   selected = null;
-  $('card').classList.remove('on');
+  $('card').classList.remove('on', 'focus');
+  $('card-backdrop').classList.remove('on');
   $('hero').classList.remove('away');
   $('clocks').style.opacity = '1';
   restyleArcs();
@@ -199,6 +203,8 @@ async function fillCard(d: Dest): Promise<void> {
   const flight = km < 300 ? `${Math.max(1, Math.round(km / 80))} h drive` : `${Math.round(km / 830 + 0.6)} h`;
   renderFacts(facts(d, flight, km, '…'));
   renderDays([]);
+  cardWeather = null;
+  renderWeek();
 
   const [summary, w, places] = await Promise.allSettled([citySummary(d), weather(d.lat, d.lng), nearbyAttractions(d.lat, d.lng)]);
   if (token !== cardToken) return;
@@ -215,6 +221,8 @@ async function fillCard(d: Dest): Promise<void> {
   }
   if (w.status === 'fulfilled') {
     d.tz = w.value.timezone;
+    cardWeather = w.value;
+    renderWeek();
     const local = new Date().toLocaleTimeString('en-US', { timeZone: w.value.timezone, hour: 'numeric', minute: '2-digit' });
     const sunset = new Date(w.value.days[0].sunset).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     renderFacts(facts(d, flight, km, `${Math.round(w.value.nowTemp)}° ${weatherIcon(w.value.nowCode).icon}`, local, sunset));
@@ -241,12 +249,67 @@ function renderDays(photos: string[]): void {
     .join('');
 }
 
+/** Seven forecast days from the chosen start date; days outside the trip are dimmed, rainy ones tinted. */
+function renderWeek(): void {
+  const start = $<HTMLInputElement>('c-start').value;
+  const list = cardWeather?.days.filter((x) => x.date >= start).slice(0, 7) ?? [];
+  $('c-week').innerHTML = list.length
+    ? list
+        .map((x, i) => {
+          const cls = [x.rain >= 50 ? 'rain' : '', i >= tripDays ? 'out' : ''].join(' ');
+          const { icon, label } = weatherIcon(x.code);
+          return `<div class="${cls}" title="${label}, ${x.rain}% rain" style="animation-delay:${i * 50}ms">${prettyDate(x.date, { weekday: 'narrow' })}<b>${icon}</b>${Math.round(x.max)}°</div>`;
+        })
+        .join('')
+    : '<div>Forecast loading…</div>';
+}
+
 function wireCard(): void {
+  const start = $<HTMLInputElement>('c-start');
+  start.value = addDays(isoDay(new Date()), 7);
+  start.min = isoDay(new Date());
+  start.onchange = renderWeek;
+  const setDays = (n: number) => {
+    tripDays = Math.min(10, Math.max(1, n));
+    $('c-len').textContent = `${tripDays} day${tripDays > 1 ? 's' : ''}`;
+    renderWeek();
+  };
+  $('c-minus').onclick = () => setDays(tripDays - 1);
+  $('c-plus').onclick = () => setDays(tripDays + 1);
+  setDays(tripDays);
+  $('c-pace').onclick = (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
+    if (!b) return;
+    tripPace = b.dataset.pace as Pace;
+    $('c-pace').querySelectorAll('button').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+  };
+  // Hovering the panel pauses the tour and brings the panel to the centre, bigger.
+  // It stays there until the pointer has been inside it and leaves, the backdrop is clicked, or Esc.
+  const card = $('card');
+  let inside = false;
+  const focus = () => {
+    if (!card.classList.contains('on') || card.classList.contains('focus') || !wide()) return;
+    stopTour();
+    inside = false;
+    card.classList.add('focus');
+    $('card-backdrop').classList.add('on');
+  };
+  const unfocus = () => {
+    card.classList.remove('focus');
+    $('card-backdrop').classList.remove('on');
+    card.scrollTop = 0;
+  };
+  card.addEventListener('mouseenter', () => (card.classList.contains('focus') ? (inside = true) : focus()));
+  card.addEventListener('mouseleave', () => inside && unfocus());
+  card.addEventListener('focusin', stopTour);
+  $('card-backdrop').onclick = unfocus;
+  addEventListener('keydown', (e) => e.key === 'Escape' && card.classList.contains('focus') && unfocus());
+
   $('c-close').onclick = () => {
     stopTour();
     closeCard();
   };
-  $('c-plan').onclick = () => {
+  const plan = () => {
     if (!selected) return;
     stopTour();
     location.hash = tripHash({
@@ -254,12 +317,14 @@ function wireCard(): void {
       country: selected.country,
       lat: selected.lat,
       lng: selected.lng,
-      start: addDays(isoDay(new Date()), 7),
-      days: 4,
-      pace: 'balanced',
+      start: start.value || isoDay(new Date()),
+      days: tripDays,
+      pace: tripPace,
       removed: [],
     });
   };
+  $('c-plan').onclick = plan;
+  $('c-plan-2').onclick = plan;
   addEventListener('keydown', (e) => e.key === 'Escape' && selected && !$('home').hidden && closeCard());
 }
 
