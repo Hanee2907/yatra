@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="./assets/index-CRPAI6Nc.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-ilRJV-xl.css">
+    <script type="module" crossorigin src="./assets/index-nAfpJukd.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DXouifF0.css">
   </head>
   <body>
     <!-- ============ HOME: the globe ============ -->
@@ -22,8 +22,10 @@
       <header class="topbar">
         <a class="brand" href="#" aria-label="Yatra home"><i></i>YATRA</a>
         <nav class="nav">
-          <button id="nav-trips" class="nav-btn">My trips <span id="trip-count" class="count">0</span></button>
-          <span class="nav-home" id="home-chip">Home · Toronto</span>
+          <button class="nav-link on" id="nav-explore">Explore</button>
+          <button class="nav-link" id="nav-trips">My trips <span id="trip-count" class="count">0</span></button>
+          <button class="nav-link" id="nav-saved">Saved</button>
+          <span class="nav-me">Hanee ✦</span>
         </nav>
       </header>
       <div class="glass trips-pop" id="trips-pop" hidden></div>
@@ -31,41 +33,33 @@
       <section class="hero" id="hero">
         <small class="kicker">Plan less · wander more</small>
         <h1>Wake up in <em id="swap">Kyoto.</em></h1>
-        <p>Spin the planet, pick any city, and get a day-by-day plan built around your pace, the weather and golden hour.</p>
+        <p>Spin the planet, tap a place, and get a day-by-day plan built around your pace, the weather and golden hour.</p>
         <form class="search glass" id="search" role="search" autocomplete="off">
           <span aria-hidden="true">⌕</span>
           <input id="q" placeholder="Where to next, Hanee?" aria-label="Search any city" />
-          <button type="submit">Explore</button>
+          <button type="submit">Plan a trip</button>
         </form>
         <ul class="results glass" id="results" hidden></ul>
         <div class="chips" id="chips"></div>
       </section>
 
+      <div class="stats" id="stats"></div>
       <div class="clocks" id="clocks" aria-label="Local time around the world"></div>
       <div class="tour glass" id="tour"><span id="tour-label">✦ World tour</span><div class="bar"><i></i></div><span id="tour-next"></span></div>
+      <div class="credit">Earth imagery: NASA via three-globe · photos Wikimedia Commons</div>
 
       <aside class="card glass" id="card" aria-live="polite">
-        <div class="cover"><img id="c-img" alt="" /><button class="x" id="c-close" aria-label="Back to the globe">✕</button></div>
+        <img class="cover" id="c-img" alt="" />
         <div class="card-body">
           <small class="kicker" id="c-kicker"></small>
           <h2 id="c-name"></h2>
           <p class="extract" id="c-extract"></p>
           <div class="facts" id="c-facts"></div>
-          <div class="week" id="c-week"></div>
-          <div class="setup">
-            <label>Start <input type="date" id="c-start" /></label>
-            <div class="stepper" aria-label="Number of days">
-              <button type="button" id="c-minus" aria-label="Fewer days">−</button>
-              <span id="c-days">4 days</span>
-              <button type="button" id="c-plus" aria-label="More days">+</button>
-            </div>
+          <div class="day-strip" id="c-days"></div>
+          <div class="cta">
+            <button class="go" id="c-plan">Plan my days ✦</button>
+            <button class="back" id="c-close">Back to globe</button>
           </div>
-          <div class="seg" id="c-pace" role="radiogroup" aria-label="Pace">
-            <button role="radio" aria-checked="false" data-pace="slow">Slow</button>
-            <button role="radio" aria-checked="true" data-pace="balanced">Balanced</button>
-            <button role="radio" aria-checked="false" data-pace="packed">Packed</button>
-          </div>
-          <button class="go" id="c-plan">Plan my days ✦</button>
         </div>
       </aside>
     </div>
@@ -83,6 +77,14 @@
         </div>
         <small class="kicker" id="t-kicker"></small>
         <h1 id="t-title"></h1>
+        <div class="setup">
+          <label>Start <input type="date" id="t-start" /></label>
+          <div class="stepper" aria-label="Number of days">
+            <button type="button" id="t-minus" aria-label="Fewer days">−</button>
+            <span id="t-len">4 days</span>
+            <button type="button" id="t-plus" aria-label="More days">+</button>
+          </div>
+        </div>
         <div class="seg seg-sm" id="t-pace" role="radiogroup" aria-label="Pace">
           <button role="radio" data-pace="slow">Slow</button>
           <button role="radio" data-pace="balanced">Balanced</button>
