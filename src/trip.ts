@@ -247,29 +247,63 @@ export function wireTrip(): void {
     const stop = (e.target as HTMLElement).closest<HTMLElement>('.stop');
     markers.forEach((m) => m.getElement().classList.toggle('hl', m.getElement().dataset.id === stop?.dataset.id));
   };
-  // The whole plan lives in the link, so sharing needs no account or database.
+  // Sharing saves the trip to the cloud first, so the friend gets a short link to the same plan.
   // Where the device has a share sheet (phones, Windows, Mac), it opens WhatsApp, Messages, mail and so on.
   $('t-share').onclick = async () => {
-    const text = `${trip.days} days in ${trip.name} — here's our plan on Yatra ✈️`;
+    const url = await saveAndLink(false);
+    const text = `${trip.days} days in ${trip.name}: here's our plan on Yatra ✈️`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: `Yatra · ${trip.name}`, text, url: location.href });
+        await navigator.share({ title: `Yatra · ${trip.name}`, text, url });
         return;
       } catch (e) {
         if ((e as DOMException).name === 'AbortError') return;
       }
     }
     try {
-      await navigator.clipboard.writeText(location.href);
+      await navigator.clipboard.writeText(url);
       toast('Link copied. Your friend will see this exact plan.');
     } catch {
-      toast('Copy the address bar to share this plan');
+      toast(`Share this link: ${url}`);
     }
   };
-  $('t-save').onclick = () => {
+  $('t-save').onclick = () => saveAndLink(true);
+}
+
+/**
+ * Saves the trip (to the cloud when it's set up, always on this device too) and returns the link to share.
+ * Saving again after changes updates your saved copy; a friend's changes become their own copy.
+ */
+async function saveAndLink(announce: boolean): Promise<string> {
+  const btn = $<HTMLButtonElement>('t-save');
+  const local = () =>
     saveTrip({ name: trip.name, country: trip.country, start: trip.start, days: trip.days, hash: tripHash(trip), image: cache?.image });
-    toast(`Saved. Find it under My trips.`);
-  };
+  const { cloudReady, saveCloudTrip } = await import('./cloud');
+  if (!cloudReady) {
+    local();
+    if (announce) toast('Saved on this device. Find it under My trips.');
+    return location.href;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const id = await saveCloudTrip(trip, cache?.image ?? '');
+    const mine = id === trip.id;
+    trip = { ...trip, id };
+    history.replaceState(null, '', tripHash(trip));
+    local();
+    btn.textContent = 'Saved ✓';
+    if (announce) toast(mine ? 'Changes saved.' : 'Saved to My trips. Share it with anyone.');
+    return `${location.origin}${location.pathname}#t/${id}`;
+  } catch {
+    local();
+    btn.textContent = 'Save';
+    if (announce) toast('Saved on this device. Online saving is unavailable right now.');
+    return location.href;
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => (btn.textContent = 'Save'), 2200);
+  }
 }
 
 // ---------- Map ----------

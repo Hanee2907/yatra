@@ -22,6 +22,8 @@ export interface TripParams {
   days: number;
   pace: Pace;
   removed: number[];
+  /** Set once the trip is saved to the cloud. */
+  id?: string;
 }
 
 export function tripHash(t: TripParams): string {
@@ -35,6 +37,7 @@ export function tripHash(t: TripParams): string {
     p: t.pace,
   });
   if (t.removed.length) q.set('r', t.removed.join(','));
+  if (t.id) q.set('id', t.id);
   return `#trip?${q}`;
 }
 
@@ -54,6 +57,7 @@ export function parseTrip(hash: string): TripParams | null {
     days: Math.min(10, Math.max(1, Number(q.get('d')) || 3)),
     pace: pace === 'slow' || pace === 'packed' ? pace : 'balanced',
     removed: (q.get('r') ?? '').split(',').map(Number).filter(Boolean),
+    id: q.get('id') || undefined,
   };
 }
 

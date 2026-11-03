@@ -13,6 +13,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",
     "@tweenjs/tween.js": "^21.1.1",
+    "firebase": "^13.2.0",
     "globe.gl": "2.32.0",
     "maplibre-gl": "4.7.1"
   },

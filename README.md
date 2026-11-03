@@ -21,11 +21,11 @@ Spin a 3D globe, pick any city on Earth, and get a day-by-day trip plan built ar
 - **Swap any stop** and the plan rebuilds. Change pace and it re-plans instantly.
 - **Ask Yatra.** A chat drawer next to the plan, with quick questions (best food, hidden gems, safety at night, what to wear, rainy day ideas). Paste your own Anthropic API key (kept only in your browser) for full answers from Claude that know your exact plan and forecast; without a key it still suggests extra places and packing tips from the open data.
 - **Smart packing list** built from the forecast and the kind of places you'll visit.
-- **Save and share.** Trips save on your device, and the URL holds the whole plan, so a link opens the same trip for anyone.
+- **Save and share.** Save a trip to the cloud (Firebase Firestore, with a quiet anonymous sign-in, so no account needed) and share a short link that opens the exact plan for a friend. If they change it and save, they get their own copy; yours stays as it is. Security rules in [firestore.rules](firestore.rules) let anyone with the link view a trip, but only its owner change or delete it.
 
 ## Built with
 
-TypeScript · Vite · globe.gl (three.js) · MapLibre GL · Anthropic TypeScript SDK · Vitest
+TypeScript · Vite · globe.gl (three.js) · MapLibre GL · Firebase (Auth + Firestore) · Anthropic TypeScript SDK · Vitest
 
 Free, key-less data: Wikipedia (places, photos, summaries), Open-Meteo (forecast, sunrise, sunset, time zone), Photon / OpenStreetMap (city search), OpenFreeMap (map tiles).
 

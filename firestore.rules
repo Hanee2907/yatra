@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// Yatra: each trip belongs to the person who saved it.
+// Anyone with a trip's link can open it; only its owner can change or delete it.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /trips/{tripId} {
+      allow get: if true;
+      allow list: if request.auth != null && resource.data.owner == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.owner == request.auth.uid
+        && validTrip(request.resource.data);
+      allow update: if request.auth != null
+        && resource.data.owner == request.auth.uid
+        && request.resource.data.owner == resource.data.owner
+        && validTrip(request.resource.data);
+      allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
+    }
+
+    function validTrip(t) {
+      return t.keys().hasOnly(['owner', 'name', 'country', 'lat', 'lng', 'start', 'days', 'pace', 'removed', 'image', 'created', 'updated'])
+        && t.name is string && t.name.size() > 0 && t.name.size() <= 120
+        && t.country is string && t.country.size() <= 80
+        && t.lat is number && t.lng is number
+        && t.start is string && t.start.size() == 10
+        && t.days is int && t.days >= 1 && t.days <= 10
+        && t.pace in ['slow', 'balanced', 'packed']
+        && t.removed is list && t.removed.size() <= 200
+        && t.image is string && t.image.size() <= 600;
+    }
+  }
+}
